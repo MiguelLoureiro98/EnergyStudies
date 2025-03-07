@@ -10,13 +10,14 @@
 
 %% Load the data.
 
-pkg_path = "C:\Users\User\Desktop\Project_repos\";
+pkg_path = ".\data\";
+%pkg_path = "C:\Users\User\Desktop\Project_repos\";
 %pkg_path = "J:\Projectos_e_relatorios\Project_repos\";
 
 if(strcmp(fit_var_name, "Cp") == 1)
 
     filename = pkg_path + ...
-               "Controlab\Controlab\data\NREL5MW_data\Cp" + ...
+               "NREL5MW_data\Cp" + ...
                "\CpVersusTSR&Pitch_WT_Perf_updated.xlsx";
 
     sheetname = "CpVersusTSR&Pitch-SortedByTSR";
@@ -24,7 +25,7 @@ if(strcmp(fit_var_name, "Cp") == 1)
 elseif(strcmp(fit_var_name, "Ct") == 1)
 
     filename = pkg_path + ...
-               "Controlab\Controlab\data\NREL5MW_data\Ct" + ...
+               "NREL5MW_data\Ct" + ...
                "\CtVersusTSR&Pitch_WT_Perf_updated.xlsx";
 
     sheetname = "CtVersusTSR&Pitch-SortedByTSR";
