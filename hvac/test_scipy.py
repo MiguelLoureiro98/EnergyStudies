@@ -79,9 +79,9 @@ def HVAC_system(t: np.ndarray,
                 w_out: float, 
                 CO2_out: float) -> float:
 
-    cp_air_out = 1005 + w_out * 4186.8;
-    cp_air_sa = 1005 + x[7] * 4186.8;
-    cp_air_zone = 1005 + x[3] * 4186.8;
+    cp_air_out = 1005 + w_out * 1820;
+    cp_air_sa = 1005 + x[7] * 1820;
+    cp_air_zone = 1005 + x[3] * 1820;
 
     eff_cc = efficiency(mdot_sa, cp_air_out, mdot_cooling_coil, 4186.8, "cooling_coil");
     Cmin_cc, _ = Cminmax(mdot_sa, cp_air_out, mdot_cooling_coil, 4186.8);
@@ -93,12 +93,12 @@ def HVAC_system(t: np.ndarray,
     dT_zone = (mdot_sa * cp_air_zone * (x[10] - x[0]) + 4 * 2 * 12 * (x[2] - x[0]) + 1 * 9 * (x[1] - x[0])) / 47100;
     dT_roof = 1 * 9 * (x[0] - 2 * x[1] + T_out) / 80000;
     dT_walls = 2 * 12 * (x[0] - 2 * x[2] + T_out) / 65000;
-    dw_zone = mdot_sa * (x[8] - x[3]) / (1.225 * 1.44);
+    dw_zone = mdot_sa * (x[7] - x[3]) / (1.225 * 1.44);
     dCO2_zone = mdot_sa * (CO2_out - x[4]) / (1.225 * 1.44);
     dT_cool = (eff_cc * Cmin_cc * (10 - T_out) + mdot_sa * cp_air_out * (T_out - x[5])) / (7.9941 * cp_air_out);
     dT_dehum = (eff_deh * Cmin_deh * (x[9] - x[5]) + mdot_sa * cp_air_out * (x[5] - x[6])) / (10.798 * cp_air_out);
-    dw_dehum = (0.8 * (0.5 - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
-    dT_s_dehum = (eff_deh * Cmin_deh * (x[5] - x[9]) + mdot_dehum * 4027 * (x[9] - x[8]) + mdot_sa * 2257000 * (w_out - x[7])) / (4027 * 15.6571);
+    dw_dehum = (0.0 * (0.5 - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
+    dT_s_dehum = (eff_deh * Cmin_deh * (x[5] - x[9]) + mdot_dehum * 4027 * (x[9] - x[8]) + mdot_sa * 2501300 * (w_out - x[7])) / (4027 * 15.6571);
     dT_s_cooler = (eff_cooler * Cmin_cooler * (1 - x[9]) + mdot_dehum * 4027 * (x[8] - x[9])) / (4027 * 15.6571);
     dT_heat = (mdot_sa * cp_air_sa * (x[6] - x[10]) + 0.8 * Q_electric) / 4500;
 
@@ -106,7 +106,7 @@ def HVAC_system(t: np.ndarray,
 
 def HVAC_controller(x):
 
-    return (1, 0, 0, 0, 0);
+    return (20, 0, 0, 0, 0);
 
 def first_order(t, x, u):
 
@@ -163,10 +163,10 @@ if __name__ == "__main__":
     # HVAC system
 
     # Initial conditions
-    x2 = [25, 20, 20, 0.2, 0, 25, 25, 0.2, 15, 10, 25];
+    x2 = [25, 20, 20, 0.2, 0, 15, 15, 0.2, 15, 15, 25];
 
     # Time span
-    t_span = [0, 10];
+    t_span = [0, 100];
     Ts = 0.1;
     n = int((t_span[1] - t_span[0]) / Ts + 1);
 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     
     true_time = np.array([np.fmin(t_span[1], t_span[0] + Ts * i) for i in range(n)]);
 
-    results = np.zeros((12, 1));
+    results = np.array([[0.0], [25.0], [20.0], [20.0], [0.2], [0.0], [15.0], [15.0], [0.2], [15.0], [15.0], [25.0]]);
 
     for t in range(n-1):
 
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q = HVAC_controller(x2);
 
         # Solve ODE
-        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, 15, 0.0, 0));
+        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, 15, 0.2, 0));
 
         # Store results
         new_data = np.vstack((sol.t, sol.y));
