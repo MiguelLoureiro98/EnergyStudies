@@ -2,21 +2,111 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
-def HVAC_system(t, x, mdot_sa, d, mdot_cool, mdot_dehum, Q_electric, T_out, w_out, CO2_out):
+def eps(NTU: float, Cr: float) -> float:
 
-    dT_zone = (mdot_sa * 1005 * (x[10] - x[0]) + 4 * 2 * 12 * (x[2] - x[0]) + 1 * 9 * (x[1] - x[0])) / 47100;
+    if(NTU == 0.0 and Cr == 1.0):
+
+        epsilon = 0.0;
+    
+    else:
+
+        epsilon = (1 - np.exp(-NTU * (1 - Cr))) / (1 - Cr * np.exp(-NTU * (1 - Cr)));
+
+    return epsilon;
+
+def Cr(Cmin: float, Cmax: float) -> float:
+
+    if(Cmax == 0.0):
+
+        Cr = 1.0;
+    
+    else:
+
+        Cr = Cmin / Cmax;
+
+    return Cr;
+
+def Cminmax(mdot_1: float, cp_1: float, mdot_2: float, cp_2: float) -> float:
+
+    Cmin = np.fmin(mdot_1 * cp_1, mdot_2 * cp_2);
+    Cmax = np.fmax(mdot_1 * cp_1, mdot_2 * cp_2);
+
+    return Cmin, Cmax;
+
+def efficiency(mdot_1: float, 
+               cp_1: float, 
+               mdot_2: float, 
+               cp_2: float,
+               component: str) -> float:
+
+    Cmin, Cmax = Cminmax(mdot_1, cp_1, mdot_2, cp_2);
+    Cratio = Cr(Cmin, Cmax);
+
+    correlations = {
+        "cooling_coil": (4.6879 * mdot_1 ** (0.472)) / (1 + 15.6315 * (mdot_1 / (mdot_2 + 1e-12)) ** (0.472)), # 1 - air; 2 - water
+        "dehumidifier": (1.993 * mdot_1 ** (1.1324)) / (1 + 1.7540 * (mdot_1 / (mdot_2 + 1e-12)) ** (1.1324)), # 1 - air; # 2 - solution
+        "cooler": (12.8299 * mdot_1 ** (0.8505)) / (1 + 4.888 * (mdot_1 / (mdot_2 + 1e-12)) ** (0.8505)) # 1 - solution; 2 - water
+    };
+
+    if(Cmin == 0.0):
+
+        NTU = 0.0;
+    
+    else:
+        
+        NTU = correlations[component] / Cmin;
+
+    eff = eps(NTU, Cratio);
+
+    return eff;
+
+def mixing_box():
+
+    pass
+
+def omega_eq():
+
+    pass
+
+def HVAC_system(t: np.ndarray, 
+                x: list, 
+                mdot_sa: float,
+                mdot_cooling_coil: float, 
+                mdot_dehum: float, 
+                mdot_cooler: float,
+                Q_electric: float, 
+                T_out: float, 
+                w_out: float, 
+                CO2_out: float) -> float:
+
+    cp_air_out = 1005 + w_out * 4186.8;
+    cp_air_sa = 1005 + x[7] * 4186.8;
+    cp_air_zone = 1005 + x[3] * 4186.8;
+
+    eff_cc = efficiency(mdot_sa, cp_air_out, mdot_cooling_coil, 4186.8, "cooling_coil");
+    Cmin_cc, _ = Cminmax(mdot_sa, cp_air_out, mdot_cooling_coil, 4186.8);
+    eff_deh = efficiency(mdot_sa, cp_air_out, mdot_dehum, 4027, "dehumidifier");
+    Cmin_deh, _ = Cminmax(mdot_sa, cp_air_out, mdot_dehum, 4027);
+    eff_cooler = efficiency(mdot_dehum, 4027, mdot_cooler, 4186.8, "cooler");
+    Cmin_cooler, _ = Cminmax(mdot_dehum, 4027, mdot_cooler, 4186.8);
+
+    dT_zone = (mdot_sa * cp_air_zone * (x[10] - x[0]) + 4 * 2 * 12 * (x[2] - x[0]) + 1 * 9 * (x[1] - x[0])) / 47100;
     dT_roof = 1 * 9 * (x[0] - 2 * x[1] + T_out) / 80000;
     dT_walls = 2 * 12 * (x[0] - 2 * x[2] + T_out) / 65000;
     dw_zone = mdot_sa * (x[8] - x[3]) / (1.225 * 1.44);
-    dCO2_zone = mdot_sa * (CO2_out - x[9]) / (1.225 * 1.44);
-    dT_cool = 0;
-    dT_dehum = 0;
-    dw_dehum = 0;
-    dT_s_dehum = 0;
-    dT_s_cooler = 0;
-    dT_heat = (mdot_sa * 1005 * (x[6] - x[10]) + 0.8 * Q_electric) / 4500;
+    dCO2_zone = mdot_sa * (CO2_out - x[4]) / (1.225 * 1.44);
+    dT_cool = (eff_cc * Cmin_cc * (10 - T_out) + mdot_sa * cp_air_out * (T_out - x[5])) / (7.9941 * cp_air_out);
+    dT_dehum = (eff_deh * Cmin_deh * (x[9] - x[5]) + mdot_sa * cp_air_out * (x[5] - x[6])) / (10.798 * cp_air_out);
+    dw_dehum = (0.8 * (0.5 - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
+    dT_s_dehum = (eff_deh * Cmin_deh * (x[5] - x[9]) + mdot_dehum * 4027 * (x[9] - x[8]) + mdot_sa * 2257000 * (w_out - x[7])) / (4027 * 15.6571);
+    dT_s_cooler = (eff_cooler * Cmin_cooler * (1 - x[9]) + mdot_dehum * 4027 * (x[8] - x[9])) / (4027 * 15.6571);
+    dT_heat = (mdot_sa * cp_air_sa * (x[6] - x[10]) + 0.8 * Q_electric) / 4500;
 
     return [dT_zone, dT_roof, dT_walls, dw_zone, dCO2_zone, dT_cool, dT_dehum, dw_dehum, dT_s_dehum, dT_s_cooler, dT_heat];
+
+def HVAC_controller(x):
+
+    return (1, 0, 0, 0, 0);
 
 def first_order(t, x, u):
 
@@ -64,8 +154,47 @@ if __name__ == "__main__":
         # Update initial conditions
         x0 = sol.y[:, -1];
 
-print(sol.t);
+    #print(sol.t);
 
-# Plot results
-plt.plot(results[0, :], results[1, :]);
-plt.show();
+    # Plot results
+    #plt.plot(results[0, :], results[1, :]);
+    #plt.show();
+
+    # HVAC system
+
+    # Initial conditions
+    x2 = [25, 20, 20, 0.2, 0, 25, 25, 0.2, 15, 10, 25];
+
+    # Time span
+    t_span = [0, 10];
+    Ts = 0.1;
+    n = int((t_span[1] - t_span[0]) / Ts + 1);
+
+    if(int((t_span[1] - t_span[0]) % Ts) != 0):
+    
+        n += 1;
+    
+    true_time = np.array([np.fmin(t_span[1], t_span[0] + Ts * i) for i in range(n)]);
+
+    results = np.zeros((12, 1));
+
+    for t in range(n-1):
+
+        # Control input
+        mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q = HVAC_controller(x2);
+
+        # Solve ODE
+        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, 15, 0.0, 0));
+
+        # Store results
+        new_data = np.vstack((sol.t, sol.y));
+        results = np.hstack((results, new_data));
+
+        # Update initial conditions
+        x2 = sol.y[:, -1];
+
+    # Plot results
+    plt.plot(results[0, :], 15 * np.ones(results.shape[1]), label="Outside Temperature");
+    plt.plot(results[0, :], results[1, :], label="Zone Temperature");
+    plt.legend();
+    plt.show();
