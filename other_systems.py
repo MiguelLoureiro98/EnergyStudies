@@ -39,8 +39,8 @@ def heat_pump(t: float,
     
     dT_HP = (mdot_HP * 4186 * (x[1] - x[0]) + 4.9 * Q) / 0.3153;
     dT_BT = (mdot_HP * 4186 * (x[0] - x[1]) + mdot_rad * 4186 * (x[2] - x[1])) / (0.2 * 4186.8 * 998);
-    dT_rad = (mdot_rad * 4186 * (x[1] - x[2]) + 500 * (x[2] - x[1]) / np.log((x[3] - x[2]) / (x[3] - x[1]))) / (46.7 * 447);
-    dT_zone = (4 * 2 * 12 * (x[5] - x[3]) + 1 * 9 * (x[4] - x[3]) - 500 * (x[2] - x[1]) / np.log((x[3] - x[2]) / (x[3] - x[1]))) / 47100;
+    dT_rad = (mdot_rad * 4186 * (x[1] - x[2]) + 500 * (x[2] - x[1]) / (np.log((x[3] - x[2]) / (x[3] - x[1] + 1e-7) + 1e-7) + 1e-7)) / (46.7 * 447);
+    dT_zone = (4 * 2 * 12 * (x[5] - x[3]) + 1 * 9 * (x[4] - x[3]) - 500 * (x[2] - x[1]) / (np.log((x[3] - x[2]) / (x[3] - x[1] + 1e-7) + 1e-7) + 1e-7)) / 47100;
     dT_roof = 1 * 9 * (x[0] - 2 * x[1] + T_outside) / 80000;
     dT_walls = 2 * 12 * (x[0] - 2 * x[2] + T_outside) / 65000;
 
@@ -84,8 +84,6 @@ if __name__ == "__main__":
     fig = plt.figure(figsize=(5, 5));
 
     ax = fig.subplots(2, 1, sharex=True);
-
-    
 
     ax[0].plot(results[0, :], results[1, :]);
     ax[0].set_title("Beta_dot");
@@ -133,9 +131,7 @@ if __name__ == "__main__":
     # Plot results
     fig = plt.figure(figsize=(5, 5));
 
-    ax = fig.subplots(2, 1, sharex=True);
-
-    
+    ax = fig.subplots(2, 1, sharex=True);    
 
     ax[0].plot(results[0, :], results[1, :]);
     ax[0].set_title("Gama_dot");
@@ -150,11 +146,11 @@ if __name__ == "__main__":
 
     # Heat pump     
     # Initial conditions
-    x0 = np.zeros(6).tolist();
+    x0 = [30.0, 30.0, 30.0, 25.0, 20.0, 20.0];
 
     # Time span
-    t_span = [0, 10];
-    Ts = 0.01;
+    t_span = [0, 100000];
+    Ts = 10.0;
     n = int((t_span[1] - t_span[0]) / Ts + 1);
 
     if(int((t_span[1] - t_span[0]) % Ts) != 0):
@@ -168,7 +164,7 @@ if __name__ == "__main__":
     for t in range(n-1):
 
         # Solve ODE
-        sol = solve_ivp(yaw_actuator, [true_time[t], true_time[t+1]], x0, args=(u,));
+        sol = solve_ivp(heat_pump, [true_time[t], true_time[t+1]], x0, args=(0, 0, 0, 0, 10.0));
 
         # Store results
         new_data = np.vstack((sol.t, sol.y));
@@ -178,18 +174,33 @@ if __name__ == "__main__":
         x0 = sol.y[:, -1];
 
     # Plot results
-    fig = plt.figure(figsize=(5, 5));
+    fig = plt.figure(figsize=(10, 5));
 
     ax = fig.subplots(6, 1, sharex=True);
 
     ax[0].plot(results[0, :], results[1, :]);
-    ax[0].set_title("Gama_dot");
+    ax[0].set_title("T Heat Pump");
     ax[0].grid();
 
     ax[1].plot(results[0, :], results[2, :]);
-    ax[1].set_title("Gama");
+    ax[1].set_title("T Buffer Tank");
     ax[1].grid();
-    
-    ax[1].set_xlabel("t (s)");
+
+    ax[2].plot(results[0, :], results[3, :]);
+    ax[2].set_title("T Radiator");
+    ax[2].grid();
+
+    ax[3].plot(results[0, :], results[4, :]);
+    ax[3].set_title("T Zone");
+    ax[3].grid();
+
+    ax[4].plot(results[0, :], results[5, :]);
+    ax[4].set_title("T Roof");
+    ax[4].grid();
+
+    ax[5].plot(results[0, :], results[6, :]);
+    ax[5].set_title("T Walls");
+    ax[5].grid();
+    ax[5].set_xlabel("t (s)");
 
     plt.show();
