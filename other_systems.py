@@ -115,7 +115,7 @@ def CSTR(t: float,
     r = K * x[0];
 
     dca = (Q * (cin - x[0]) - 100 * r) / 100;
-    dT = (1000 * Q * 0.239 * (Tin - x[1]) + 5e4 * 1000 * r + 5e4 * (Tc - x[1])) / (1000 * 100 * 0.239);
+    dT = (1000 * Q * 0.239 * (Tin - x[1]) + 5e4 * 100 * r + 5e4 * (Tc - x[1])) / (1000 * 100 * 0.239);
 
     return [dca, dT];
 
@@ -333,7 +333,7 @@ if __name__ == "__main__":
 
     # Time span
     t_span = [0, 10];
-    Ts = 0.5;
+    Ts = 0.1;
     n = int((t_span[1] - t_span[0]) / Ts + 1);
 
     if(int((t_span[1] - t_span[0]) % Ts) != 0):
@@ -347,7 +347,7 @@ if __name__ == "__main__":
     for t in range(n-1):
 
         # Solve ODE
-        sol = solve_ivp(CSTR, [true_time[t], true_time[t+1]], x0, args=(100, 300, 1, 350));
+        sol = solve_ivp(CSTR, [true_time[t], true_time[t+1]], x0, args=(100.0, 300.0, 1.0, 350.0));
 
         # Store results
         new_data = np.vstack((sol.t, sol.y));
