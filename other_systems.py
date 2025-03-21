@@ -29,6 +29,24 @@ def yaw_actuator(t: float,
 
     return [dgamadot, dgama];
 
+def COP_model(T_outside: float, T_BT: float) -> float:
+
+    COP = np.fmin(4.9, 5.71 + 0.1615 * T_outside - 0.1236 * T_BT + 0.001217 * T_outside**2 - 0.002318 * T_BT**2 + 0.0008342 * T_outside * T_BT);
+
+    return COP;
+
+def log_mean_T(Tzone: float, Tin: float, Tout: float) -> float:
+
+    if(np.sign(Tin) == np.sign(Tout)):
+
+        T = 500 * (Tin - Tout) / (np.log((Tzone - Tout + 1e-7) / (Tzone - Tin + 1e-7)));
+    
+    else:
+
+        T = 0.0;
+
+    return T;
+
 def heat_pump(t: float,
               x: list,
               N_people: int,
@@ -37,12 +55,12 @@ def heat_pump(t: float,
               Q: float,
               T_outside: float) -> list:
     
-    dT_HP = (mdot_HP * 4186 * (x[1] - x[0]) + 4.9 * Q) / 0.3153;
+    dT_HP = (mdot_HP * 4186 * (x[1] - x[0]) + COP_model(T_outside, x[1]) * Q) / 0.3153;
     dT_BT = (mdot_HP * 4186 * (x[0] - x[1]) + mdot_rad * 4186 * (x[2] - x[1])) / (0.2 * 4186.8 * 998);
-    dT_rad = (mdot_rad * 4186 * (x[1] - x[2]) + 500 * (x[2] - x[1]) / (np.log((x[3] - x[2]) / (x[3] - x[1] + 1e-7) + 1e-7) + 1e-7)) / (46.7 * 447);
-    dT_zone = (4 * 2 * 12 * (x[5] - x[3]) + 1 * 9 * (x[4] - x[3]) - 500 * (x[2] - x[1]) / (np.log((x[3] - x[2]) / (x[3] - x[1] + 1e-7) + 1e-7) + 1e-7)) / 47100;
-    dT_roof = 1 * 9 * (x[0] - 2 * x[1] + T_outside) / 80000;
-    dT_walls = 2 * 12 * (x[0] - 2 * x[2] + T_outside) / 65000;
+    dT_rad = (mdot_rad * 4186 * (x[1] - x[2]) + log_mean_T(x[3], x[1], x[2])) / (46.7 * 447);
+    dT_zone = (4 * 2 * 12 * (x[5] - x[3]) + 1 * 9 * (x[4] - x[3]) - log_mean_T(x[3], x[1], x[2])) / 47100;
+    dT_roof = 1 * 9 * (x[3] - 2 * x[4] + T_outside) / 80000;
+    dT_walls = 2 * 12 * (x[3] - 2 * x[5] + T_outside) / 65000;
 
     return [dT_HP, dT_BT, dT_rad, dT_zone, dT_roof, dT_walls];
 
@@ -146,10 +164,10 @@ if __name__ == "__main__":
 
     # Heat pump     
     # Initial conditions
-    x0 = [30.0, 30.0, 30.0, 25.0, 20.0, 20.0];
+    x0 = [50.0, 40.0, 30.0, 25.0, 20.0, 20.0];
 
     # Time span
-    t_span = [0, 100000];
+    t_span = [0, 20000];
     Ts = 10.0;
     n = int((t_span[1] - t_span[0]) / Ts + 1);
 
@@ -161,46 +179,46 @@ if __name__ == "__main__":
 
     results = np.zeros((7, 1));
 
-    for t in range(n-1):
+    #for t in range(n-1):
 
         # Solve ODE
-        sol = solve_ivp(heat_pump, [true_time[t], true_time[t+1]], x0, args=(0, 0, 0, 0, 10.0));
+    #    sol = solve_ivp(heat_pump, [true_time[t], true_time[t+1]], x0, args=(0, 1, 1, 1000, 10.0));
 
         # Store results
-        new_data = np.vstack((sol.t, sol.y));
-        results = np.hstack((results, new_data));
+    #    new_data = np.vstack((sol.t, sol.y));
+    #    results = np.hstack((results, new_data));
 
         # Update initial conditions
-        x0 = sol.y[:, -1];
+    #    x0 = sol.y[:, -1];
 
     # Plot results
-    fig = plt.figure(figsize=(10, 5));
+    #fig = plt.figure(figsize=(10, 5));
 
-    ax = fig.subplots(6, 1, sharex=True);
+    #ax = fig.subplots(6, 1, sharex=True);
 
-    ax[0].plot(results[0, :], results[1, :]);
-    ax[0].set_title("T Heat Pump");
-    ax[0].grid();
+    #ax[0].plot(results[0, :], results[1, :]);
+    #ax[0].set_title("T Heat Pump");
+    #ax[0].grid();
 
-    ax[1].plot(results[0, :], results[2, :]);
-    ax[1].set_title("T Buffer Tank");
-    ax[1].grid();
+    #ax[1].plot(results[0, :], results[2, :]);
+    #ax[1].set_title("T Buffer Tank");
+    #ax[1].grid();
 
-    ax[2].plot(results[0, :], results[3, :]);
-    ax[2].set_title("T Radiator");
-    ax[2].grid();
+    #ax[2].plot(results[0, :], results[3, :]);
+    #ax[2].set_title("T Radiator");
+    #ax[2].grid();
 
-    ax[3].plot(results[0, :], results[4, :]);
-    ax[3].set_title("T Zone");
-    ax[3].grid();
+    #ax[3].plot(results[0, :], results[4, :]);
+    #ax[3].set_title("T Zone");
+    #ax[3].grid();
 
-    ax[4].plot(results[0, :], results[5, :]);
-    ax[4].set_title("T Roof");
-    ax[4].grid();
+    #ax[4].plot(results[0, :], results[5, :]);
+    #ax[4].set_title("T Roof");
+    #ax[4].grid();
 
-    ax[5].plot(results[0, :], results[6, :]);
-    ax[5].set_title("T Walls");
-    ax[5].grid();
-    ax[5].set_xlabel("t (s)");
+    #ax[5].plot(results[0, :], results[6, :]);
+    #ax[5].set_title("T Walls");
+    #ax[5].grid();
+    #ax[5].set_xlabel("t (s)");
 
-    plt.show();
+    #plt.show();
