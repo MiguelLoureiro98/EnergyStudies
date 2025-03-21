@@ -82,13 +82,42 @@ def XY_table(t: float,
 
     return [ddpsi_x, dpsi_x, ddphi_x, dphi_x, ddpsi_y, dpsi_y, ddphi_y, dphi_y, X, Y];
 
-def tower_crane():
+def tower_crane(t: float,
+                x: list,
+                uL: float,
+                uX: float,
+                uTheta: float,
+                payload: float) -> list:
 
-    pass
+    g = 9.81;
 
-def CSTR():
+    ddL = 0.0108 / 0.02 * uL - 1 / 0.02 * x[0] - payload * g;
+    dL = x[0];
+    ddx = 0.0154 / 0.02 * uX - 1 / 0.02 * x[2] + payload / 3.452 * g * x[5];
+    dx = x[2];
+    ddalpha = (- g * x[5] - x[2]) / x[1];
+    dalpha = x[4];
+    ddtheta = 0.0;
+    dtheta = x[6];
+    ddphi = 0.0;
+    dphi = x[8];
 
-    pass
+    return [ddL, dL, ddx, dx, ddalpha, dalpha, ddtheta, dtheta, ddphi, dphi];
+
+def CSTR(t: float,
+         x: list,
+         Q: float,
+         Tc: float,
+         cin: float,
+         Tin: float) -> list:
+
+    K = 7.2e10 * np.exp(-8750/x[1]);
+    r = K * x[0];
+
+    dca = (Q * (cin - x[0]) - 100 * r) / 100;
+    dT = (1000 * Q * (Tin - x[1]) + 5e4 * 1000 * r + 5e4 * (Tc - x[1])) / (1000 * 100 * 0.239);
+
+    return [dca, dT];
 
 def bioreactor():
     
@@ -253,7 +282,7 @@ if __name__ == "__main__":
 
     #plt.show();
 
-    # Pitch Actuator     
+    # XY table    
     # Initial conditions
     x0 = np.zeros(10).tolist();
 
@@ -293,6 +322,51 @@ if __name__ == "__main__":
 
     ax[1].plot(results[0, :], results[10, :]);
     ax[1].set_title("Y");
+    ax[1].grid();
+    ax[1].set_xlabel("t (s)");
+
+    plt.show();
+
+    # CSTR   
+    # Initial conditions
+    x0 = [0.5, 350];
+
+    # Time span
+    t_span = [0, 10];
+    Ts = 0.01;
+    n = int((t_span[1] - t_span[0]) / Ts + 1);
+
+    if(int((t_span[1] - t_span[0]) % Ts) != 0):
+    
+        n += 1;
+    
+    true_time = np.array([np.fmin(t_span[1], t_span[0] + Ts * i) for i in range(n)]);
+
+    results = np.array([[0.0], [0.5], [350.0]]);
+
+    for t in range(n-1):
+
+        # Solve ODE
+        sol = solve_ivp(CSTR, [true_time[t], true_time[t+1]], x0, args=(100, 300, 1, 350));
+
+        # Store results
+        new_data = np.vstack((sol.t, sol.y));
+        results = np.hstack((results, new_data));
+
+        # Update initial conditions
+        x0 = sol.y[:, -1];
+
+    # Plot results
+    fig = plt.figure(figsize=(5, 5));
+
+    ax = fig.subplots(2, 1, sharex=True);    
+
+    ax[0].plot(results[0, :], results[1, :]);
+    ax[0].set_title("cA");
+    ax[0].grid();
+
+    ax[1].plot(results[0, :], results[2, :]);
+    ax[1].set_title("T");
     ax[1].grid();
     ax[1].set_xlabel("t (s)");
 
