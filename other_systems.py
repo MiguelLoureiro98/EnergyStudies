@@ -64,6 +64,36 @@ def heat_pump(t: float,
 
     return [dT_HP, dT_BT, dT_rad, dT_zone, dT_roof, dT_walls];
 
+def XY_table(t: float,
+             x: list,
+             Tm_x: float,
+             Tm_y: float) -> list:
+    
+    ddpsi_x = (Tm_x + 2.6682 * (x[3] - x[1]) + 5e-4 * (x[2] - x[0]) - 1.39e-4 * x[0]) / 2.3e-5;
+    dpsi_x = x[0];
+    ddphi_x = (2.6682 * (x[1] - x[3]) + 5e-4 * (x[0] - x[2]) - 0.001 * x[2]) / 2.1e-5;
+    dphi_x = x[2];
+    ddpsi_y = (Tm_y + 2.3017 * (x[7] - x[5]) + 0.0011 * (x[6] - x[4]) - 1.17e-4 * x[4]) / 2.3e-5;
+    dpsi_y = x[4];
+    ddphi_y = (2.3017 * (x[5] - x[7]) + 0.0011 * (x[4] - x[6]) - 7.25e-4 * x[6]) / 2.33e-5;
+    dphi_y = x[6];
+    X = 0.7958 * x[3];
+    Y = 0.7958 * x[7];
+
+    return [ddpsi_x, dpsi_x, ddphi_x, dphi_x, ddpsi_y, dpsi_y, ddphi_y, dphi_y, X, Y];
+
+def tower_crane():
+
+    pass
+
+def CSTR():
+
+    pass
+
+def bioreactor():
+    
+    pass
+
 if __name__ == "__main__":
 
     # Pitch Actuator     
@@ -222,3 +252,48 @@ if __name__ == "__main__":
     #ax[5].set_xlabel("t (s)");
 
     #plt.show();
+
+    # Pitch Actuator     
+    # Initial conditions
+    x0 = np.zeros(10).tolist();
+
+    # Time span
+    t_span = [0, 10];
+    Ts = 0.01;
+    n = int((t_span[1] - t_span[0]) / Ts + 1);
+
+    if(int((t_span[1] - t_span[0]) % Ts) != 0):
+    
+        n += 1;
+    
+    true_time = np.array([np.fmin(t_span[1], t_span[0] + Ts * i) for i in range(n)]);
+
+    results = np.zeros((11, 1));
+
+    for t in range(n-1):
+
+        # Solve ODE
+        sol = solve_ivp(XY_table, [true_time[t], true_time[t+1]], x0, args=(0.0, 0.0));
+
+        # Store results
+        new_data = np.vstack((sol.t, sol.y));
+        results = np.hstack((results, new_data));
+
+        # Update initial conditions
+        x0 = sol.y[:, -1];
+
+    # Plot results
+    fig = plt.figure(figsize=(5, 5));
+
+    ax = fig.subplots(2, 1, sharex=True);
+
+    ax[0].plot(results[0, :], results[9, :]);
+    ax[0].set_title("X");
+    ax[0].grid();
+
+    ax[1].plot(results[0, :], results[10, :]);
+    ax[1].set_title("Y");
+    ax[1].grid();
+    ax[1].set_xlabel("t (s)");
+
+    plt.show();
