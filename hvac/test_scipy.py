@@ -74,7 +74,8 @@ def HVAC_system(t: np.ndarray,
                 mdot_cooling_coil: float, 
                 mdot_dehum: float, 
                 mdot_cooler: float,
-                Q_electric: float, 
+                Q_electric: float,
+                w_equ: float, 
                 T_out: float, 
                 w_out: float, 
                 CO2_out: float) -> float:
@@ -97,7 +98,7 @@ def HVAC_system(t: np.ndarray,
     dCO2_zone = mdot_sa * (CO2_out - x[4]) / (1.225 * 1.44);
     dT_cool = (eff_cc * Cmin_cc * (10 - T_out) + mdot_sa * cp_air_out * (T_out - x[5])) / (7.9941 * cp_air_out);
     dT_dehum = (eff_deh * Cmin_deh * (x[9] - x[5]) + mdot_sa * cp_air_out * (x[5] - x[6])) / (10.798 * cp_air_out);
-    dw_dehum = (0.0 * (0.5 - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
+    dw_dehum = (0.8 * (w_equ - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
     dT_s_dehum = (eff_deh * Cmin_deh * (x[5] - x[9]) + mdot_dehum * 4027 * (x[9] - x[8]) + mdot_sa * 2501300 * (w_out - x[7])) / (4027 * 15.6571);
     dT_s_cooler = (eff_cooler * Cmin_cooler * (1 - x[9]) + mdot_dehum * 4027 * (x[8] - x[9])) / (4027 * 15.6571);
     dT_heat = (mdot_sa * cp_air_sa * (x[6] - x[10]) + 0.8 * Q_electric) / 4500;
@@ -106,7 +107,7 @@ def HVAC_system(t: np.ndarray,
 
 def HVAC_controller(x):
 
-    return (20, 0, 0, 0, 0);
+    return (20, 0, 0, 0, 0, 0.3);
 
 def first_order(t, x, u):
 
@@ -181,10 +182,10 @@ if __name__ == "__main__":
     for t in range(n-1):
 
         # Control input
-        mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q = HVAC_controller(x2);
+        mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, w_equ = HVAC_controller(x2);
 
         # Solve ODE
-        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, 15, 0.2, 0));
+        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, w_equ, 15, 0.3, 0));
 
         # Store results
         new_data = np.vstack((sol.t, sol.y));
@@ -194,7 +195,7 @@ if __name__ == "__main__":
         x2 = sol.y[:, -1];
 
     # Plot results
-    plt.plot(results[0, :], 15 * np.ones(results.shape[1]), label="Outside Temperature");
-    plt.plot(results[0, :], results[1, :], label="Zone Temperature");
+    plt.plot(results[0, :], 0.3 * np.ones(results.shape[1]), label="Outside Humidity");
+    plt.plot(results[0, :], results[4, :], label="Zone Humidity");
     plt.legend();
     plt.show();

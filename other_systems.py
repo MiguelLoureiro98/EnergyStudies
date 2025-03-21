@@ -333,7 +333,7 @@ if __name__ == "__main__":
 
     # Time span
     t_span = [0, 10];
-    Ts = 0.01;
+    Ts = 0.5;
     n = int((t_span[1] - t_span[0]) / Ts + 1);
 
     if(int((t_span[1] - t_span[0]) % Ts) != 0):
