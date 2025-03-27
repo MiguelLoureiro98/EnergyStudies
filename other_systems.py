@@ -341,8 +341,8 @@ if __name__ == "__main__":
     x0 = [0, 5, 0, 0, 0, 0, 0, 0, 0, 0];
 
     # Time span
-    t_span = [0, 10];
-    Ts = 0.01;
+    t_span = [0, 10000];
+    Ts = 0.1;
     n = int((t_span[1] - t_span[0]) / Ts + 1);
 
     if(int((t_span[1] - t_span[0]) % Ts) != 0):
@@ -368,7 +368,7 @@ if __name__ == "__main__":
     # Plot results
     fig = plt.figure(figsize=(5, 5));
 
-    ax = fig.subplots(2, 1, sharex=True);    
+    ax = fig.subplots(5, 1, sharex=True);    
 
     ax[0].plot(results[:, 0], results[:, 2]);
     ax[0].set_title("L");
@@ -377,7 +377,19 @@ if __name__ == "__main__":
     ax[1].plot(results[:, 0], results[:, 4]);
     ax[1].set_title("x");
     ax[1].grid();
-    ax[1].set_xlabel("t (s)");
+
+    ax[2].plot(results[:, 0], results[:, 6]);
+    ax[2].set_title("alpha");
+    ax[2].grid();
+
+    ax[3].plot(results[:, 0], results[:, 8]);
+    ax[3].set_title("theta");
+    ax[3].grid();
+
+    ax[4].plot(results[:, 0], results[:, 10]);
+    ax[4].set_title("phi");
+    ax[4].grid();
+    ax[4].set_xlabel("t (s)");
 
     plt.show();
 
