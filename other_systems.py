@@ -90,16 +90,25 @@ def tower_crane(t: float,
                 payload: float) -> list:
 
     g = 9.81;
+    Meq = 3.452;
+    Jeq = 7.637;
+    Mt = 0.0917;
+    KL = 0.0108;
+    KX = 0.0154;
+    KTheta = 0.11;
+    tauL = 0.02;
+    tauX = 0.02;
+    tauTheta = 0.055;
 
-    ddL = 0.0108 / 0.02 * uL - 1 / 0.02 * x[0] - payload * g;
+    ddL = KL / tauL * uL - 1 / tauL * x[0] - payload * g;
     dL = x[0];
-    ddx = 0.0154 / 0.02 * uX - 1 / 0.02 * x[2] + payload / 3.452 * g * x[5];
+    ddx = KX / tauX * uX - 1 / tauX * x[2] + payload / Meq * g * x[5];
     dx = x[2];
-    ddalpha = (- g * x[5] - x[2]) / x[1];
+    ddalpha = (- g * x[5] - ddx) / x[1];
     dalpha = x[4];
-    ddtheta = 0.0;
+    ddtheta = (KTheta / tauTheta * uTheta - x[6] / tauTheta + payload / Jeq * g * x[3] * x[9]) / (1 + Mt * x[3]**2);
     dtheta = x[6];
-    ddphi = 0.0;
+    ddphi = (- g * x[9] - x[3] * ddtheta) / x[1];
     dphi = x[8];
 
     return [ddL, dL, ddx, dx, ddalpha, dalpha, ddtheta, dtheta, ddphi, dphi];
@@ -327,6 +336,51 @@ if __name__ == "__main__":
 
     plt.show();
 
+    # Tower Crane
+    # Initial conditions
+    x0 = [0, 5, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    # Time span
+    t_span = [0, 10];
+    Ts = 0.01;
+    n = int((t_span[1] - t_span[0]) / Ts + 1);
+
+    if(int((t_span[1] - t_span[0]) % Ts) != 0):
+    
+        n += 1;
+    
+    true_time = np.array([np.fmin(t_span[1], t_span[0] + Ts * i) for i in range(n)]);
+
+    results = np.array([0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+    for t in range(n-1):
+
+        # Solve ODE
+        sol = solve_ivp(tower_crane, [true_time[t], true_time[t+1]], x0, args=(6, 0, 0, 0.32));
+
+        # Store results
+        new_data = np.hstack((sol.t.reshape(sol.t.shape[0], -1), sol.y.T));
+        results = np.vstack((results, new_data));
+
+        # Update initial conditions
+        x0 = sol.y[:, -1];
+
+    # Plot results
+    fig = plt.figure(figsize=(5, 5));
+
+    ax = fig.subplots(2, 1, sharex=True);    
+
+    ax[0].plot(results[:, 0], results[:, 2]);
+    ax[0].set_title("L");
+    ax[0].grid();
+
+    ax[1].plot(results[:, 0], results[:, 4]);
+    ax[1].set_title("x");
+    ax[1].grid();
+    ax[1].set_xlabel("t (s)");
+
+    plt.show();
+
     # CSTR   
     # Initial conditions
     x0 = [0.5, 350];
@@ -347,7 +401,7 @@ if __name__ == "__main__":
     for t in range(n-1):
 
         # Solve ODE
-        sol = solve_ivp(CSTR, [true_time[t], true_time[t+1]], x0, args=(100.0, 300.0, 1.0, 350.0));
+        sol = solve_ivp(CSTR, [true_time[t], true_time[t+1]], x0, args=(100.0, 300.0, 0.5, 350.0));
 
         # Store results
         new_data = np.vstack((sol.t, sol.y));
