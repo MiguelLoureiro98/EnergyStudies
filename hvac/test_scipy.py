@@ -60,7 +60,7 @@ def efficiency(mdot_1: float,
 
     return eff;
 
-def fan_power(mdot: float) -> float:
+def fan_power(mdot: float | np.ndarray) -> float | np.ndarray:
 
     power = 0.0;
 
@@ -70,13 +70,23 @@ def fan_power(mdot: float) -> float:
 
     return power;
 
-def cooling_coil_power(mdot: float, Tin: float, Tout: float) -> float:
+def cooling_coil_power(mdot: float | np.ndarray, 
+                       Tin: float | np.ndarray, 
+                       Tout: float | np.ndarray) -> float | np.ndarray:
 
     power = 0.0;
 
     return power;
 
-def dehumidifier_power(mdot: float, Tsin: float, Tsout: float) -> float:
+def pump_power(mdot: float | np.ndarray) -> float | np.ndarray:
+
+    power = mdot**3 - 30927273.097 * mdot**2 + 137809.092 * mdot + 157.5;
+
+    return power;
+
+def dehumidifier_power(mdot: float | np.ndarray, 
+                       Tsin: float | np.ndarray, 
+                       Tsout: float | np.ndarray) -> float | np.ndarray:
 
     COP_chiller = 3;
 
