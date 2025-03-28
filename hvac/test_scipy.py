@@ -60,13 +60,29 @@ def efficiency(mdot_1: float,
 
     return eff;
 
-def mixing_box():
+def fan_power(mdot: float) -> float:
 
-    pass
+    power = 0.0;
 
-def omega_eq():
+    if(mdot != 0.0):
 
-    pass
+        power = -40803.019 * mdot**2 + 6737.594 * mdot + 157.166;
+
+    return power;
+
+def cooling_coil_power(mdot: float, Tin: float, Tout: float) -> float:
+
+    power = 0.0;
+
+    return power;
+
+def dehumidifier_power(mdot: float, Tsin: float, Tsout: float) -> float:
+
+    COP_chiller = 3;
+
+    power = mdot * (Tsin - Tsout) / COP_chiller;
+
+    return power;
 
 def HVAC_system(t: np.ndarray, 
                 x: list, 
@@ -86,6 +102,7 @@ def HVAC_system(t: np.ndarray,
     cp_vapour = 1820;
     cp_water = 4186.8;
     cp_solution = 4027;
+    rho_air = 1.225;
 
     w_new = d * w_out + (1 - d) * x[3];
 
@@ -106,8 +123,8 @@ def HVAC_system(t: np.ndarray,
     dT_zone = (mdot_sa * cp_air_zone * (x[10] - x[0]) + 4 * 2 * 12 * (x[2] - x[0]) + 1 * 9 * (x[1] - x[0]) + N * 185) / 47100;
     dT_roof = 1 * 9 * (x[0] - 2 * x[1] + T_out) / 80000;
     dT_walls = 2 * 12 * (x[0] - 2 * x[2] + T_out) / 65000;
-    dw_zone = mdot_sa * (x[7] - x[3]) / (1.225 * 1.44) + N * (0.025 / 3600);
-    dCO2_zone = mdot_sa * (CO2_out - x[4]) / (1.225 * 1.44) + N * 0.554;
+    dw_zone = mdot_sa * (x[7] - x[3]) / (rho_air * 1.44) + N * (0.025 / 3600);
+    dCO2_zone = mdot_sa * (CO2_out - x[4]) / (rho_air * 1.44) + N * 0.554;
     dT_cool = (eff_cc * Cmin_cc * (10 - T_new) + mdot_sa * cp_air_new * (T_new - x[5])) / (7.9941 * cp_air_new);
     dT_dehum = (eff_deh * Cmin_deh * (x[9] - x[5]) + mdot_sa * cp_air_new * (x[5] - x[6])) / (10.798 * cp_air_new);
     dw_dehum = (0.8 * (w_equ - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
