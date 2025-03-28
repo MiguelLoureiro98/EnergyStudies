@@ -71,6 +71,7 @@ def omega_eq():
 def HVAC_system(t: np.ndarray, 
                 x: list, 
                 mdot_sa: float,
+                d: float,
                 mdot_cooling_coil: float, 
                 mdot_dehum: float, 
                 mdot_cooler: float,
@@ -78,36 +79,47 @@ def HVAC_system(t: np.ndarray,
                 w_equ: float, 
                 T_out: float, 
                 w_out: float, 
-                CO2_out: float) -> float:
+                CO2_out: float,
+                N: int) -> float:
 
-    cp_air_out = 1005 + w_out * 1820;
-    cp_air_sa = 1005 + x[7] * 1820;
-    cp_air_zone = 1005 + x[3] * 1820;
+    cp_air = 1005;
+    cp_vapour = 1820;
+    cp_water = 4186.8;
+    cp_solution = 4027;
 
-    eff_cc = efficiency(mdot_sa, cp_air_out, mdot_cooling_coil, 4186.8, "cooling_coil");
-    Cmin_cc, _ = Cminmax(mdot_sa, cp_air_out, mdot_cooling_coil, 4186.8);
-    eff_deh = efficiency(mdot_sa, cp_air_out, mdot_dehum, 4027, "dehumidifier");
-    Cmin_deh, _ = Cminmax(mdot_sa, cp_air_out, mdot_dehum, 4027);
-    eff_cooler = efficiency(mdot_dehum, 4027, mdot_cooler, 4186.8, "cooler");
-    Cmin_cooler, _ = Cminmax(mdot_dehum, 4027, mdot_cooler, 4186.8);
+    w_new = d * w_out + (1 - d) * x[3];
 
-    dT_zone = (mdot_sa * cp_air_zone * (x[10] - x[0]) + 4 * 2 * 12 * (x[2] - x[0]) + 1 * 9 * (x[1] - x[0])) / 47100;
+    cp_air_new = cp_air + w_new * cp_vapour;
+    cp_air_sa = cp_air + x[7] * cp_vapour;
+    cp_air_zone = cp_air + x[3] * cp_vapour;
+
+    cp_air_out = cp_air + w_out * cp_vapour;
+    T_new = (d * cp_air_out * T_out + (1 - d) * cp_air_zone * x[0]) / cp_air_new;
+
+    eff_cc = efficiency(mdot_sa, cp_air_new, mdot_cooling_coil, cp_water, "cooling_coil");
+    Cmin_cc, _ = Cminmax(mdot_sa, cp_air_new, mdot_cooling_coil, cp_water);
+    eff_deh = efficiency(mdot_sa, cp_air_new, mdot_dehum, cp_solution, "dehumidifier");
+    Cmin_deh, _ = Cminmax(mdot_sa, cp_air_new, mdot_dehum, cp_solution);
+    eff_cooler = efficiency(mdot_dehum, cp_solution, mdot_cooler, cp_water, "cooler");
+    Cmin_cooler, _ = Cminmax(mdot_dehum, cp_solution, mdot_cooler, cp_water);
+
+    dT_zone = (mdot_sa * cp_air_zone * (x[10] - x[0]) + 4 * 2 * 12 * (x[2] - x[0]) + 1 * 9 * (x[1] - x[0]) + N * 185) / 47100;
     dT_roof = 1 * 9 * (x[0] - 2 * x[1] + T_out) / 80000;
     dT_walls = 2 * 12 * (x[0] - 2 * x[2] + T_out) / 65000;
-    dw_zone = mdot_sa * (x[7] - x[3]) / (1.225 * 1.44);
-    dCO2_zone = mdot_sa * (CO2_out - x[4]) / (1.225 * 1.44);
-    dT_cool = (eff_cc * Cmin_cc * (10 - T_out) + mdot_sa * cp_air_out * (T_out - x[5])) / (7.9941 * cp_air_out);
-    dT_dehum = (eff_deh * Cmin_deh * (x[9] - x[5]) + mdot_sa * cp_air_out * (x[5] - x[6])) / (10.798 * cp_air_out);
+    dw_zone = mdot_sa * (x[7] - x[3]) / (1.225 * 1.44) + N * (0.025 / 3600);
+    dCO2_zone = mdot_sa * (CO2_out - x[4]) / (1.225 * 1.44) + N * 0.554;
+    dT_cool = (eff_cc * Cmin_cc * (10 - T_new) + mdot_sa * cp_air_new * (T_new - x[5])) / (7.9941 * cp_air_new);
+    dT_dehum = (eff_deh * Cmin_deh * (x[9] - x[5]) + mdot_sa * cp_air_new * (x[5] - x[6])) / (10.798 * cp_air_new);
     dw_dehum = (0.8 * (w_equ - w_out) + mdot_sa * (w_out - x[7])) / (10.798);
-    dT_s_dehum = (eff_deh * Cmin_deh * (x[5] - x[9]) + mdot_dehum * 4027 * (x[9] - x[8]) + mdot_sa * 2501300 * (w_out - x[7])) / (4027 * 15.6571);
-    dT_s_cooler = (eff_cooler * Cmin_cooler * (1 - x[9]) + mdot_dehum * 4027 * (x[8] - x[9])) / (4027 * 15.6571);
+    dT_s_dehum = (eff_deh * Cmin_deh * (x[5] - x[9]) + mdot_dehum * cp_solution * (x[9] - x[8]) + mdot_sa * 2501300 * (w_out - x[7])) / (cp_solution * 15.6571);
+    dT_s_cooler = (eff_cooler * Cmin_cooler * (1 - x[9]) + mdot_dehum * cp_solution * (x[8] - x[9])) / (cp_solution * 15.6571);
     dT_heat = (mdot_sa * cp_air_sa * (x[6] - x[10]) + 0.8 * Q_electric) / 4500;
 
     return [dT_zone, dT_roof, dT_walls, dw_zone, dCO2_zone, dT_cool, dT_dehum, dw_dehum, dT_s_dehum, dT_s_cooler, dT_heat];
 
 def HVAC_controller(x):
 
-    return (20, 0, 0, 0, 0, 0.3);
+    return (20, 1, 0, 0, 0, 0, 0.3);
 
 def first_order(t, x, u):
 
@@ -182,10 +194,10 @@ if __name__ == "__main__":
     for t in range(n-1):
 
         # Control input
-        mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, w_equ = HVAC_controller(x2);
+        mdot_sa, d, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, w_equ = HVAC_controller(x2);
 
         # Solve ODE
-        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, w_equ, 15, 0.3, 0));
+        sol = solve_ivp(HVAC_system, [true_time[t], true_time[t+1]], x2, args=(mdot_sa, d, mdot_cooling_coil, mdot_dehum, mdot_cooler, Q, w_equ, 15, 0.3, 0, 0));
 
         # Store results
         new_data = np.vstack((sol.t, sol.y));
@@ -195,7 +207,7 @@ if __name__ == "__main__":
         x2 = sol.y[:, -1];
 
     # Plot results
-    plt.plot(results[0, :], 0.3 * np.ones(results.shape[1]), label="Outside Humidity");
-    plt.plot(results[0, :], results[4, :], label="Zone Humidity");
+    plt.plot(results[0, :], 15 * np.ones(results.shape[1]), label="Outside Temperature");
+    plt.plot(results[0, :], results[1, :], label="Zone Temperature");
     plt.legend();
     plt.show();
